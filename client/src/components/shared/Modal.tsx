@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { LucideIcon } from 'lucide-react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { LocalizedOutput, useLanguage } from '../../lib/i18n';
 import { ActionButton } from '../templates/ConsolePrimitives';
 
 const FOCUSABLE_SELECTOR = [
@@ -58,6 +59,7 @@ export function Modal({
   fill = false,
   bodyClassName,
 }: ModalProps) {
+  const { language } = useLanguage();
   const titleId = useId();
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -160,7 +162,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             className="-mr-1 shrink-0 rounded p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-            aria-label="Cerrar"
+            aria-label={language === 'en' ? 'Close' : 'Cerrar'}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -220,7 +222,7 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const destructive = tone === 'danger';
-  return (
+  return <LocalizedOutput>{(
     <Modal
       title={title}
       description={description}
@@ -250,5 +252,5 @@ export function ConfirmDialog({
     >
       {children}
     </Modal>
-  );
+  )}</LocalizedOutput>;
 }

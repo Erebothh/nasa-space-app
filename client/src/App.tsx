@@ -1,3 +1,4 @@
+import { LocalizedOutput } from './lib/i18n';
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { DesignScreen } from './components/design/DesignScreen';
@@ -5,7 +6,10 @@ import { FlightScreen } from './components/flight/FlightScreen';
 import { HomeScreen } from './components/home/HomeScreen';
 import { LobbyScreen } from './components/lobby/LobbyScreen';
 import { ReportScreen } from './components/report/ReportScreen';
+import { AlvaBot } from './components/shared/AlvaBot';
+import { AudioControls } from './components/shared/AudioControls';
 import { ToastStack } from './components/shared/ToastStack';
+import { LanguageToggle } from './lib/i18n';
 import { useDesignStore } from './store/useDesignStore';
 
 function PhaseSync() {
@@ -35,7 +39,7 @@ export default function App() {
     connect();
   }, [connect]);
 
-  return (
+  return <LocalizedOutput>{(
     <BrowserRouter>
       <PhaseSync />
       <Routes>
@@ -47,6 +51,9 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <ToastStack />
+      <AudioControls />
+      <LanguageToggle />
+      <AlvaBot />
     </BrowserRouter>
-  );
+  )}</LocalizedOutput>;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three';
+import { LocalizedOutput } from '../../lib/i18n';
 import { createEarthTexture } from '../shared/createEarthTexture';
 import { BLUEPRINT_VIEW_NAMES, BlueprintFallback, type BlueprintProps } from './BlueprintFallback';
 
@@ -777,12 +778,12 @@ export function DesignModel3D({
     return <BlueprintFallback view={view} hasEST={hasEST} hasSCI={hasSCI} hasCOM={hasCOM} />;
   }
 
-  return (
+  return <LocalizedOutput>{(
     <div
       ref={containerRef}
       className={className}
       role="img"
       aria-label={`Modelo 3D del ${BLUEPRINT_VIEW_NAMES[view] ?? 'diseño de misión'}. Arrastra para girarlo.`}
     />
-  );
+  )}</LocalizedOutput>;
 }

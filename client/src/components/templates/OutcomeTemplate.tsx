@@ -1,3 +1,4 @@
+import { LocalizedOutput } from '../../lib/i18n';
 import type { DifficultyMode, MissionConfig, MissionReport } from '@shared/types';
 import {
   AlertTriangle,
@@ -63,7 +64,7 @@ export function MissionOutcomeTemplate({
         ? 'border-warning/40 bg-warning/20 text-warning'
         : 'border-error/40 bg-error/20 text-error';
 
-  return (
+  return <LocalizedOutput>{(
     <div className="flex min-h-screen flex-col bg-surface text-on-surface">
       <ConsoleHeader
         section="Resultados de la Misión"
@@ -203,14 +204,41 @@ export function MissionOutcomeTemplate({
                   aria-hidden="true"
                 />
                 <span className="font-title text-title-md text-on-surface">
-                  Crisis en vuelo
+                  Incidentes en vuelo
                 </span>
               </div>
               <span className="font-mono text-mono-sm text-primary">
-                {report.crisisResolved ? 'Resuelta' : 'Abierta'}
+                {report.crisisResolved ? 'Todos resueltos' : 'Pendientes'}
               </span>
             </div>
           </div>
+        </Panel>
+
+        <Panel className="flex flex-col gap-gutter-md">
+          <SectionTitle icon={AlertTriangle}>
+            Incidentes aleatorios ({report.incidents.length})
+          </SectionTitle>
+          <ul className="grid gap-gutter-sm sm:grid-cols-2 lg:grid-cols-3">
+            {report.incidents.map((incident, index) => (
+              <li
+                key={`${incident.eventId}-${index}`}
+                className="rounded border border-outline-variant bg-surface-container p-gutter-sm"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-label text-label-lg text-on-surface">
+                    {incident.title}
+                  </span>
+                  <Pill tone={incident.resolved ? 'success' : 'error'}>
+                    {incident.resolved ? 'Resuelto' : 'Pendiente'}
+                  </Pill>
+                </div>
+                <p className="mt-2 font-mono text-mono-xs text-on-surface-variant">
+                  Incidente {index + 1} · {Math.round(incident.progressPercent)}% del vuelo ·
+                  Severidad {incident.severity}
+                </p>
+              </li>
+            ))}
+          </ul>
         </Panel>
 
         <div className="grid grid-cols-1 gap-gutter-lg lg:grid-cols-2">
@@ -292,5 +320,5 @@ export function MissionOutcomeTemplate({
         </div>
       </main>
     </div>
-  );
+  )}</LocalizedOutput>;
 }

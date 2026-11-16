@@ -1,9 +1,4 @@
-import type {
-  FlightEventDefinition,
-  MissionReport,
-  ModuleItem,
-  RoomState,
-} from '../../../shared/types.js';
+import type { MissionReport, ModuleItem, RoomState } from '../../../shared/types.js';
 import { estimateDataRecoveryRatio } from '../engine/calculator.js';
 import { flightConfig } from '../catalog.js';
 import type { FlightRuntimeState } from './loop.js';
@@ -55,11 +50,11 @@ export function generateMissionReport(
       ? flightConfig.scoreWeights.data
       : flightConfig.scoreWeights.data *
         Math.min(1, dataRecoveryRatio / room.mission.requiredDownlinkRatio);
-  const operationsScore = flight.crisisResolved
-    ? flightConfig.scoreWeights.operations
-    : flight.activeEvent.severity === 'LOW'
-      ? flightConfig.scoreWeights.operations * 0.75
-      : flightConfig.scoreWeights.operations * 0.4;
+  const resolvedIncidents = flight.incidents.filter((incident) => incident.resolved).length;
+  const crisisResolved =
+    flight.incidents.length > 0 && resolvedIncidents === flight.incidents.length;
+  const operationsScore =
+    flightConfig.scoreWeights.operations * (resolvedIncidents / flight.incidents.length);
   const score = Math.round(scienceScore + dataScore + operationsScore);
   const rootCauses: MissionReport['rootCauses'] = [];
   const recommendations: string[] = [];
@@ -80,38 +75,29 @@ export function generateMissionReport(
     });
     recommendations.push('Aumentar capacidad de enlace o reducir la generación de datos.');
   }
-  if (flight.activeEvent.trigger !== 'NOMINAL' || !flight.crisisResolved) {
-    rootCauses.push({
-      code: flight.activeEvent.id,
-      title: flight.activeEvent.title,
-      explanation: flight.crisisResolved
-        ? `${flight.activeEvent.rootCause} El equipo resolvió la crisis durante el vuelo.`
-        : `${flight.activeEvent.rootCause} La crisis quedó sin resolver.`,
-    });
-    if (!flight.crisisResolved) {
-      recommendations.push(flight.activeEvent.recommendation);
+  for (const incident of flight.incidents) {
+    if (incident.event.trigger !== 'NOMINAL' || !incident.resolved) {
+      rootCauses.push({
+        code: incident.event.id,
+        title: incident.event.title,
+        explanation: incident.resolved
+          ? `${incident.event.rootCause} El equipo resolvió el incidente durante el vuelo.`
+          : `${incident.event.rootCause} El incidente quedó sin resolver.`,
+      });
+    }
+    if (!incident.resolved) {
+      recommendations.push(incident.event.recommendation);
     }
   }
-  const activeEventWarningCode: Partial<Record<FlightEventDefinition['trigger'], string>> = {
-    POWER_DEFICIT: 'POWER_DEFICIT',
-    STRUCTURAL_STRESS: 'STRUCTURAL_STRESS',
-    LOW_DOWNLINK: 'LOW_DOWNLINK',
-    NOMINAL: '',
-    SPACE_RADIATION: '',
-    FLUID_SHIFT_SANS: '',
-    SPATIAL_DISORIENTATION: '',
-    MICROBIOME_ALERT: '',
-    AUTONOMOUS_MEDICAL: '',
-  };
   for (const warning of room.audit.warnings) {
     if (
       (warning.code === 'STRUCTURAL_STRESS' || warning.code === 'POWER_DEFICIT') &&
-      warning.code !== activeEventWarningCode[flight.activeEvent.trigger]
+      !flight.incidents.some((incident) => incident.event.trigger === warning.code)
     ) {
       rootCauses.push({
         code: warning.code,
         title: warning.message,
-        explanation: flight.crisisResolved
+        explanation: crisisResolved
           ? `${warning.message} La alerta fue gestionada durante el vuelo.`
           : `${warning.message} La debilidad de diseño seguía presente al terminar el vuelo.`,
       });
@@ -126,7 +112,7 @@ export function generateMissionReport(
   }
 
   const outcome: MissionReport['outcome'] =
-    score >= flightConfig.outcomeThresholds.success && flight.crisisResolved
+    score >= flightConfig.outcomeThresholds.success && crisisResolved
       ? 'SUCCESS'
       : score >= flightConfig.outcomeThresholds.partial
         ? 'PARTIAL'
@@ -138,7 +124,14 @@ export function generateMissionReport(
     score,
     sciencePointsEarned,
     dataRecoveryRatio,
-    crisisResolved: flight.crisisResolved,
+    crisisResolved,
+    incidents: flight.incidents.map((incident) => ({
+      eventId: incident.event.id,
+      title: incident.event.title,
+      severity: incident.event.severity,
+      progressPercent: incident.progressPercent,
+      resolved: incident.resolved,
+    })),
     rootCauses,
     recommendations: [...new Set(recommendations)],
     missionReference: room.mission.realNasaReference,

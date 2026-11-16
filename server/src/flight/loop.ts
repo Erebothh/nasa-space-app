@@ -2,12 +2,13 @@ import type {
   FlightAct,
   FlightActionType,
   FlightEventDefinition,
+  FlightIncident,
   MissionConfig,
   ModuleItem,
   RoleType,
   TelemetryMetrics,
 } from '../../../shared/types.js';
-import { flightConfig, selectFlightEvent } from '../catalog.js';
+import { flightConfig, selectFlightEvents } from '../catalog.js';
 
 export interface FlightRuntimeState {
   roomId: string;
@@ -16,6 +17,8 @@ export interface FlightRuntimeState {
   progress: number;
   act: FlightAct;
   activeEvent: FlightEventDefinition;
+  activeIncidentIndex: number;
+  incidents: FlightIncident[];
   crisisTriggered: boolean;
   crisisResolved: boolean;
   activeSensorIds: string[];
@@ -26,6 +29,7 @@ export interface FlightRuntimeState {
 export interface FlightAdvanceResult {
   state: FlightRuntimeState;
   crisisStarted: boolean;
+  newIncidents: FlightIncident[];
   completed: boolean;
 }
 
@@ -42,14 +46,21 @@ export function createFlightRuntime(
   modules: ModuleItem[],
   telemetry: TelemetryMetrics,
 ): FlightRuntimeState {
-  const activeEvent = selectFlightEvent(telemetry, mission);
+  const events = selectFlightEvents(telemetry, mission);
   return {
     roomId,
     startedAt,
     durationMs: flightConfig.durationSeconds * 1000,
     progress: 0,
     act: 'ASCENT_INSERTION',
-    activeEvent,
+    activeEvent: events[0],
+    activeIncidentIndex: -1,
+    incidents: events.map((event, index) => ({
+      event,
+      progressPercent: flightConfig.eventProgressPercentages[index],
+      triggered: false,
+      resolved: false,
+    })),
     crisisTriggered: false,
     crisisResolved: false,
     activeSensorIds: modules
@@ -72,15 +83,48 @@ export function advanceFlightRuntime(
       : progress < flightConfig.crisisActEndPercent
         ? 'CRISIS'
         : 'OPERATIONS';
-  const crisisStarted =
-    !current.crisisTriggered && progress >= flightConfig.crisisProgressPercent;
+  const newIncidents = current.incidents
+    .filter((incident) => !incident.triggered && progress >= incident.progressPercent)
+    .map((incident) => ({ ...incident, triggered: true }));
+  const updatedIncidents = current.incidents.map((incident) =>
+    !incident.triggered && progress >= incident.progressPercent
+      ? { ...incident, triggered: true }
+      : incident,
+  );
+  const activeIncidentIndex =
+    newIncidents.length > 0
+      ? updatedIncidents.findIndex(
+          (incident) =>
+            incident.event.id === newIncidents[newIncidents.length - 1].event.id,
+        )
+      : current.activeIncidentIndex;
+  const activeIncident =
+    activeIncidentIndex >= 0 ? updatedIncidents[activeIncidentIndex] : null;
+  const crisisStarted = newIncidents.length > 0;
   const state: FlightRuntimeState = {
     ...current,
     progress,
     act,
-    crisisTriggered: current.crisisTriggered || crisisStarted,
+    incidents: updatedIncidents,
+    activeEvent: activeIncident?.event ?? current.activeEvent,
+    activeIncidentIndex,
+    crisisTriggered: activeIncidentIndex >= 0,
+    crisisResolved: activeIncident?.resolved ?? current.crisisResolved,
   };
-  return { state, crisisStarted, completed: progress >= 100 };
+  return { state, crisisStarted, newIncidents, completed: progress >= 100 };
+}
+
+function resolveActiveIncident(current: FlightRuntimeState): FlightRuntimeState {
+  if (current.activeIncidentIndex < 0) {
+    throw new Error('No hay un incidente activo para resolver.');
+  }
+  return {
+    ...current,
+    crisisResolved: true,
+    incidents: current.incidents.map((incident, index) =>
+      index === current.activeIncidentIndex ? { ...incident, resolved: true } : incident,
+    ),
+  };
 }
 
 function readString(payload: Record<string, unknown>, key: string): string {
@@ -100,7 +144,10 @@ export function applyFlightAction(
 ): FlightRuntimeState {
   if (actionType === 'SOLVE_PUZZLE') {
     if (!current.crisisTriggered) {
-      throw new Error('El acertijo estará disponible al comenzar la fase crítica.');
+      throw new Error('El acertijo estará disponible cuando se active un incidente.');
+    }
+    if (current.crisisResolved) {
+      throw new Error('El incidente activo ya está resuelto.');
     }
     if (!current.activeEvent.puzzle) {
       throw new Error('No hay un acertijo de crisis activo.');
@@ -113,7 +160,7 @@ export function applyFlightAction(
     if (puzzleId !== current.activeEvent.puzzle.id || answer !== current.activeEvent.puzzle.answer) {
       throw new Error('La respuesta del acertijo no es correcta.');
     }
-    return { ...current, crisisResolved: true };
+    return resolveActiveIncident(current);
   }
 
   if (actionType === 'TOGGLE_SENSOR') {
@@ -144,7 +191,10 @@ export function applyFlightAction(
     throw new Error('Solo DIRECTOR puede tomar decisiones ejecutivas.');
   }
   if (!current.crisisTriggered) {
-    throw new Error('La decisión ejecutiva estará disponible al comenzar la fase crítica.');
+    throw new Error('La decisión ejecutiva estará disponible cuando se active un incidente.');
+  }
+  if (current.crisisResolved) {
+    throw new Error('El incidente activo ya está resuelto.');
   }
   if (payload.decision !== 'SACRIFICE_EXPERIMENT') {
     throw new Error('La decisión ejecutiva solicitada no es válida.');
@@ -156,13 +206,12 @@ export function applyFlightAction(
   if (!experiment || current.disabledExperimentIds.includes(moduleId)) {
     throw new Error('El experimento no está activo o ya fue sacrificado.');
   }
-  return {
+  return resolveActiveIncident({
     ...current,
     activeSensorIds: current.activeSensorIds.filter((id) => id !== moduleId),
     disabledExperimentIds: [...current.disabledExperimentIds, moduleId],
     decisions: [...current.decisions, `SACRIFICE_EXPERIMENT:${moduleId}`],
-    crisisResolved: true,
-  };
+  });
 }
 
 export class FlightLoop {
@@ -234,8 +283,19 @@ export class FlightLoop {
     try {
       const result = advanceFlightRuntime(current, now);
       this.runtimeByRoom.set(roomId, result.state);
-      if (result.crisisStarted) {
-        this.callbacks.onCrisis(roomId, structuredClone(result.state));
+      for (const incident of result.newIncidents) {
+        const incidentIndex = result.state.incidents.findIndex(
+          (candidate) => candidate.event.id === incident.event.id,
+        );
+        this.callbacks.onCrisis(
+          roomId,
+          structuredClone({
+            ...result.state,
+            activeEvent: incident.event,
+            activeIncidentIndex: incidentIndex,
+            crisisResolved: incident.resolved,
+          }),
+        );
       }
       this.callbacks.onTick(roomId, structuredClone(result.state));
       if (result.completed) {

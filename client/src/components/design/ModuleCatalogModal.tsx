@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, Handshake, Minus, Plus, ThumbsDown, ThumbsUp, Timer } from 'lucide-react';
 import type { ActiveVote, ModuleCategory, ModuleItem } from '@shared/types';
 import { cn } from '../../lib/cn';
+import { LocalizedOutput } from '../../lib/i18n';
 import { formatKg, formatKw, formatMbps, formatMillions, formatSigned } from '../../lib/format';
 import {
   MAX_SCIENCE_BAY_SLOTS,
@@ -286,7 +287,7 @@ export function ModuleCatalogModal({
   const playerCount = useDesignStore((s) => s.roomState?.players.length ?? 1);
 
   if (view === 'debate') {
-    return (
+    return <LocalizedOutput>{(
       <Modal
         title="Mesa de debate"
         description="Cada propuesta se vota entre todos los operadores antes de aplicarse al diseño."
@@ -303,7 +304,7 @@ export function ModuleCatalogModal({
           </EmptyState>
         )}
       </Modal>
-    );
+    )}</LocalizedOutput>;
   }
 
   const category = CATEGORY_META[view];
@@ -315,7 +316,7 @@ export function ModuleCatalogModal({
       ? `${formatMillions(budgetRemaining)} disponibles · bahía científica ${countScienceBaySlots(selectedModules)}/${MAX_SCIENCE_BAY_SLOTS} ranuras`
       : `${formatMillions(budgetRemaining)} disponibles`;
 
-  return (
+  return <LocalizedOutput>{(
     <Modal title={category.label} description={description} size="lg" onClose={onClose}>
       {readOnly && (
         <p className="mb-gutter-md rounded border border-outline bg-surface-container px-gutter-md py-gutter-sm font-body text-body-md text-on-surface-variant">
@@ -331,5 +332,5 @@ export function ModuleCatalogModal({
           ))}
       </ul>
     </Modal>
-  );
+  )}</LocalizedOutput>;
 }

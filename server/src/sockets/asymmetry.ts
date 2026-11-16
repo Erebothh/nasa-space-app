@@ -35,6 +35,8 @@ export function buildAsymmetricFlightPayload(
               title: flight.activeEvent.title,
               severity: flight.activeEvent.severity,
               description: flight.activeEvent.description,
+              eventNumber: flight.activeIncidentIndex + 1,
+              totalEvents: flight.incidents.length,
             },
           ]
         : [],
@@ -142,5 +144,7 @@ export function toCrisisAlert(flight: FlightRuntimeState): FlightCrisisAlert {
     title: flight.activeEvent.title,
     severity: flight.activeEvent.severity,
     description: flight.activeEvent.description,
+    eventNumber: flight.activeIncidentIndex + 1,
+    totalEvents: flight.incidents.length,
   };
 }

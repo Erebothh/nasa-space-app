@@ -19,19 +19,26 @@ describe('flight loop and role payloads', () => {
   const modules = [scienceInstrument];
   const telemetry = calculateTelemetryMetrics(mission, modules);
 
-  it('moves through ascent, the 40% crisis and final operations exactly once', () => {
+  it('activates three incidents during the ascent, critical phase and operations', () => {
     const start = 10_000;
     const flight = createFlightRuntime('ROOM1', start, mission, modules, telemetry);
-    const beforeCrisis = advanceFlightRuntime(flight, start + 29_999);
-    const atCrisis = advanceFlightRuntime(beforeCrisis.state, start + 30_000);
-    const afterCrisis = advanceFlightRuntime(atCrisis.state, start + 34_000);
+    const firstIncident = advanceFlightRuntime(flight, start + 11_250);
+    const secondIncident = advanceFlightRuntime(firstIncident.state, start + 31_500);
+    const thirdIncident = advanceFlightRuntime(secondIncident.state, start + 56_250);
+    const completed = advanceFlightRuntime(thirdIncident.state, start + 75_000);
 
-    expect(beforeCrisis.state.act).toBe('ASCENT_INSERTION');
-    expect(atCrisis.state.progress).toBe(40);
-    expect(atCrisis.state.act).toBe('CRISIS');
-    expect(atCrisis.crisisStarted).toBe(true);
-    expect(afterCrisis.crisisStarted).toBe(false);
-    expect(afterCrisis.state.act).toBe('OPERATIONS');
+    expect(firstIncident.state.act).toBe('ASCENT_INSERTION');
+    expect(firstIncident.crisisStarted).toBe(true);
+    expect(firstIncident.state.activeIncidentIndex).toBe(0);
+    expect(secondIncident.state.act).toBe('CRISIS');
+    expect(secondIncident.crisisStarted).toBe(true);
+    expect(secondIncident.state.activeIncidentIndex).toBe(1);
+    expect(thirdIncident.state.act).toBe('OPERATIONS');
+    expect(thirdIncident.crisisStarted).toBe(true);
+    expect(thirdIncident.state.activeIncidentIndex).toBe(2);
+    expect(completed.crisisStarted).toBe(false);
+    expect(completed.completed).toBe(true);
+    expect(completed.state.incidents.every((incident) => incident.triggered)).toBe(true);
   });
 
   it('sends trajectory and threats only to COMMS and internal metrics only to PROPULSION', () => {

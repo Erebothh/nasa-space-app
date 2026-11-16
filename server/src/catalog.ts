@@ -130,6 +130,19 @@ function assertCatalogsAreValid(): void {
   ) {
     throw new Error('La configuración de duración o de actos del vuelo es inválida.');
   }
+  if (
+    flightConfig.eventProgressPercentages.length < 3 ||
+    flightConfig.eventProgressPercentages.length > flightEvents.length ||
+    flightConfig.eventProgressPercentages.some(
+      (progress, index, values) =>
+        !Number.isFinite(progress) ||
+        progress <= 0 ||
+        progress >= 100 ||
+        (index > 0 && progress <= values[index - 1]),
+    )
+  ) {
+    throw new Error('La configuración debe programar al menos tres eventos en orden durante el vuelo.');
+  }
 
   const moduleIds = new Set(modules.map((module) => module.id));
   const expectedRoleByCategory = {
@@ -311,4 +324,30 @@ export function selectFlightEvent(
     throw new Error(`No hay evento de vuelo configurado para la condición "${trigger}".`);
   }
   return structuredClone(event);
+}
+
+export function selectFlightEvents(
+  telemetry: {
+    massPercentage: number;
+    powerConsumedKw: number;
+    powerGeneratedKw: number;
+    totalDataGenerated: number;
+    totalDownlinkCapacity: number;
+  },
+  mission: MissionConfig,
+  random: () => number = Math.random,
+): FlightEventDefinition[] {
+  const firstEvent = selectFlightEvent(telemetry, mission);
+  const remainingEvents = flightEvents.filter((event) => event.id !== firstEvent.id);
+  const events = [firstEvent];
+
+  while (events.length < flightConfig.eventProgressPercentages.length) {
+    const sample = random();
+    const index = Number.isFinite(sample)
+      ? Math.min(remainingEvents.length - 1, Math.max(0, Math.floor(sample * remainingEvents.length)))
+      : 0;
+    events.push(remainingEvents.splice(index, 1)[0]);
+  }
+
+  return structuredClone(events);
 }

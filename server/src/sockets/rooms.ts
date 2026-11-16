@@ -180,6 +180,17 @@ export function registerRoomHandlers(
       }),
     );
 
+    socket.on('room:reset', (payload) =>
+      handle(socket, () => {
+        const { roomId, missionId } = requirePayload(payload);
+        const roomKey = toRoomKey(roomId);
+        const state = roomService.resetMission(roomKey, socket.id, missionId);
+        stopVoteTimer(roomKey);
+        flightLoop.stop(roomKey);
+        publishRoomState(io, state);
+      }),
+    );
+
     socket.on('room:start', (payload) =>
       handle(socket, () => {
         const { roomId } = requirePayload(payload);

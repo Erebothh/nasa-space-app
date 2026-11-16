@@ -210,6 +210,7 @@ interface DesignStore {
   leaveRoom: () => void;
   beginDesign: () => void;
   repeatMission: () => void;
+  resetMissionInRoom: (missionId: string) => void;
   selectRole: (role: RoleType) => void;
   // design
   proposeModule: (moduleId: string, action: ModuleAction) => void;
@@ -239,6 +240,8 @@ export const useDesignStore = create<DesignStore>()((set, get) => {
   const applyRoomState = (state: RoomState): void => {
     const myId = get().localMode ? LOCAL_PLAYER_ID : get().socket?.id;
     const me = state.players.find((player) => player.id === myId);
+    const returningToLobby =
+      get().phase === 'REPORT' && state.phase === 'LOBBY' && get().roomId === state.roomId;
     set({
       roomState: state,
       phase: state.phase,
@@ -252,6 +255,16 @@ export const useDesignStore = create<DesignStore>()((set, get) => {
       activeVote: state.activeVote,
       audit: state.audit,
       myRole: me?.role ?? null,
+      ...(returningToLobby
+        ? {
+            advisorFeedback: [],
+            flight: null,
+            crisisAlert: null,
+            crisisResolved: false,
+            report: null,
+            showHome: false,
+          }
+        : {}),
     });
   };
 
@@ -308,8 +321,16 @@ export const useDesignStore = create<DesignStore>()((set, get) => {
     if (!localFlightState) return;
     const result = advanceLocalFlight(localFlightState, Date.now());
     localFlightState = result.state;
-    if (result.crisisStarted) {
-      const alert = buildCrisisAlert(localFlightState);
+    for (const incident of result.newIncidents) {
+      const activeIncidentIndex = result.state.incidents.findIndex(
+        (candidate) => candidate.event.id === incident.event.id,
+      );
+      const alert = buildCrisisAlert({
+        ...result.state,
+        activeEvent: incident.event,
+        activeIncidentIndex,
+        crisisResolved: incident.resolved,
+      });
       if (alert) set({ crisisAlert: alert });
     }
     applyFlightPayload(buildLocalPayload(localFlightState));
@@ -586,6 +607,10 @@ export const useDesignStore = create<DesignStore>()((set, get) => {
 
     repeatMission: () => {
       const state = get();
+      if (state.gameMode === 'TEAM' && !state.localMode) {
+        state.resetMissionInRoom(state.missionId);
+        return;
+      }
       state.startMission({
         playerName: state.playerName || 'Operador',
         difficulty: state.difficulty,
@@ -593,6 +618,19 @@ export const useDesignStore = create<DesignStore>()((set, get) => {
         role: state.desiredRole,
         gameMode: state.gameMode,
       });
+    },
+
+    resetMissionInRoom: (missionId) => {
+      const state = get();
+      if (state.gameMode !== 'TEAM' || state.localMode || !state.roomState) {
+        get().notify('No hay una sala cooperativa activa para preparar otra misión.', 'error');
+        return;
+      }
+      if (state.roomState.hostId !== state.socket?.id) {
+        get().notify('Solo el anfitrión puede elegir la próxima misión.', 'warning');
+        return;
+      }
+      onlineSocket()?.emit('room:reset', { roomId: state.roomId, missionId });
     },
 
     selectRole: (role) => {

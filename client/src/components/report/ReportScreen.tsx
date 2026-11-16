@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
+import { LocalizedOutput } from '../../lib/i18n';
+import { useMemo, useState } from 'react';
 import type { MissionConfig, MissionReport } from '@shared/types';
 import { useDesignStore } from '../../store/useDesignStore';
+import { ActionButton, Panel } from '../templates/ConsolePrimitives';
 import { MissionOutcomeTemplate, type OutcomeStat } from '../templates/OutcomeTemplate';
 
 function buildStats(report: MissionReport, mission: MissionConfig | null): OutcomeStat[] {
@@ -32,11 +34,11 @@ function buildStats(report: MissionReport, mission: MissionConfig | null): Outco
       tone: downlinkTarget === undefined ? 'primary' : meetsDownlinkTarget ? 'success' : 'warning',
     },
     {
-      label: 'Crisis en vuelo',
-      value: report.crisisResolved ? 'Resuelta' : 'Abierta',
+      label: 'Incidentes resueltos',
+      value: `${report.incidents.filter((incident) => incident.resolved).length} / ${report.incidents.length}`,
       note: report.crisisResolved
-        ? 'El equipo estabilizó la nave'
-        : 'La anomalía condicionó el resultado',
+        ? 'Todos los incidentes fueron controlados'
+        : 'Los incidentes sin resolver reducen el resultado',
       tone: report.crisisResolved ? 'success' : 'error',
     },
     {
@@ -53,16 +55,48 @@ export function ReportScreen() {
   const mission = useDesignStore((s) => s.mission);
   const difficulty = useDesignStore((s) => s.difficulty);
   const repeatMission = useDesignStore((s) => s.repeatMission);
+  const resetMissionInRoom = useDesignStore((s) => s.resetMissionInRoom);
   const leaveRoom = useDesignStore((s) => s.leaveRoom);
   const openHome = useDesignStore((s) => s.openHome);
+  const missions = useDesignStore((s) => s.missions);
+  const gameMode = useDesignStore((s) => s.gameMode);
+  const localMode = useDesignStore((s) => s.localMode);
+  const roomState = useDesignStore((s) => s.roomState);
+  const socket = useDesignStore((s) => s.socket);
+  const notify = useDesignStore((s) => s.notify);
+  const [missionPickerOpen, setMissionPickerOpen] = useState(false);
+  const [nextMissionId, setNextMissionId] = useState(mission?.id ?? '');
 
   const stats = useMemo(
     () => (report ? buildStats(report, mission) : []),
     [report, mission],
   );
+  const isRoomHost = roomState?.hostId === socket?.id;
+
+  const startNewMission = () => {
+    if (gameMode !== 'TEAM' || localMode) {
+      leaveRoom();
+      return;
+    }
+    if (!isRoomHost) {
+      notify('El anfitrión debe elegir la próxima misión para esta sala.', 'warning');
+      return;
+    }
+    setNextMissionId(mission?.id ?? missions[0]?.id ?? '');
+    setMissionPickerOpen(true);
+  };
+
+  const confirmNewMission = () => {
+    if (!missions.some((item) => item.id === nextMissionId)) {
+      notify('Selecciona una misión disponible.', 'error');
+      return;
+    }
+    resetMissionInRoom(nextMissionId);
+    setMissionPickerOpen(false);
+  };
 
   if (!report) {
-    return (
+    return <LocalizedOutput>{(
       <div className="flex min-h-screen items-center justify-center bg-surface p-gutter-lg text-on-surface">
         <div className="flex max-w-md flex-col items-center gap-gutter-sm text-center">
           <p className="font-headline text-headline-md">Informe no disponible</p>
@@ -78,18 +112,60 @@ export function ReportScreen() {
           </button>
         </div>
       </div>
-    );
+    )}</LocalizedOutput>;
   }
 
-  return (
+  return <LocalizedOutput>{(
+    <>
     <MissionOutcomeTemplate
       difficulty={difficulty}
       mission={mission}
       report={report}
       stats={stats}
       onReplay={repeatMission}
-      onNewMission={leaveRoom}
+      onNewMission={startNewMission}
       onHome={openHome}
     />
-  );
+    {missionPickerOpen && (
+      <div
+        className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-gutter-md"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="next-mission-title"
+      >
+        <Panel className="w-full max-w-lg">
+          <h2 id="next-mission-title" className="font-headline text-headline-md text-on-surface">
+            Elegir la próxima misión
+          </h2>
+          <p className="mt-1 font-body text-body-md text-on-surface-variant">
+            La sala y su código se conservarán. La tripulación volverá junta al lobby.
+          </p>
+          <label htmlFor="next-mission" className="mt-gutter-md block font-label text-label-sm text-on-surface">
+            Escenario
+          </label>
+          <select
+            id="next-mission"
+            value={nextMissionId}
+            onChange={(event) => setNextMissionId(event.target.value)}
+            className="mt-1 w-full rounded border border-outline bg-surface-container px-gutter-sm py-gutter-xs font-body text-body-md text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {missions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.title}
+              </option>
+            ))}
+          </select>
+          <div className="mt-gutter-md flex justify-end gap-gutter-sm">
+            <ActionButton variant="secondary" onClick={() => setMissionPickerOpen(false)}>
+              Cancelar
+            </ActionButton>
+            <ActionButton onClick={confirmNewMission} disabled={missions.length === 0}>
+              Volver al lobby
+            </ActionButton>
+          </div>
+        </Panel>
+      </div>
+    )}
+    </>
+  )}</LocalizedOutput>;
 }

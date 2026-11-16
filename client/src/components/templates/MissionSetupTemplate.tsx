@@ -1,3 +1,4 @@
+import { LocalizedOutput } from '../../lib/i18n';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowLeft,
@@ -90,14 +91,14 @@ const STEPS = [
 ] as Array<{ id: string; label: string; shortLabel: string; description: string }>;
 
 function MissionStat({ label, value }: { label: string; value: string }) {
-  return (
+  return <LocalizedOutput>{(
     <div className="rounded border border-outline-variant bg-surface-container/70 px-gutter-sm py-gutter-xs">
       <dt className="font-body text-[10px] uppercase tracking-wider text-on-surface-variant">
         {label}
       </dt>
       <dd className="mt-0.5 font-mono text-mono-sm tabular-nums text-on-surface">{value}</dd>
     </div>
-  );
+  )}</LocalizedOutput>;
 }
 
 export function MissionSetupTemplate({
@@ -114,6 +115,7 @@ export function MissionSetupTemplate({
 }: MissionSetupTemplateProps) {
   const [step, setStep] = useState(0);
   const [joinCode, setJoinCode] = useState('');
+  const [teamIntent, setTeamIntent] = useState<'CREATE' | 'JOIN' | null>(null);
   const [selectedMissionId, setSelectedMissionId] = useState('');
   const mission = missions.find((item) => item.id === selectedMissionId);
   const story = mission?.story ?? mission?.realNasaReference.summary;
@@ -128,7 +130,7 @@ export function MissionSetupTemplate({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (step !== STEPS.length - 1 || !playerName.trim() || !mission) return;
-    if (gameMode === 'TEAM' && joinCode.trim()) {
+    if (gameMode === 'TEAM' && teamIntent === 'JOIN') {
       onJoin(joinCode.trim());
       return;
     }
@@ -141,7 +143,7 @@ export function MissionSetupTemplate({
   const renderStep = () => {
     switch (step) {
       case 0:
-        return (
+        return <LocalizedOutput>{(
           <StepShell
             key="mode"
             title="Elige cómo quieres operar"
@@ -173,7 +175,11 @@ export function MissionSetupTemplate({
                     key={item.id}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => onChange({ gameMode: item.id })}
+                    onClick={() => {
+                      onChange({ gameMode: item.id });
+                      setTeamIntent(null);
+                      setJoinCode('');
+                    }}
                     className={cn(
                       'group relative flex min-h-44 flex-col gap-gutter-sm rounded-md border p-gutter-md text-left transition-all duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
                       selected
@@ -205,12 +211,80 @@ export function MissionSetupTemplate({
                 );
               })}
             </div>
-            <StepFooter onNext={goNext} canGoBack={false} />
+            {gameMode === 'TEAM' && (
+              <div className="flex flex-col gap-gutter-sm rounded-md border border-primary/20 bg-primary/5 p-gutter-md">
+                <p className="font-label text-label-lg text-on-surface">¿Qué quieres hacer?</p>
+                <div className="grid gap-gutter-sm sm:grid-cols-2" role="group" aria-label="Acción de sala">
+                  <button
+                    type="button"
+                    aria-pressed={teamIntent === 'CREATE'}
+                    onClick={() => {
+                      setTeamIntent('CREATE');
+                      setJoinCode('');
+                    }}
+                    className={cn(
+                      'rounded border px-gutter-sm py-gutter-xs text-left font-label text-label-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+                      teamIntent === 'CREATE'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-outline bg-surface-container text-on-surface-variant hover:border-primary/50',
+                    )}
+                  >
+                    Crear una sala
+                    <span className="mt-1 block font-body text-[11px]">
+                      Serás anfitrión y podrás compartir el código.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={teamIntent === 'JOIN'}
+                    onClick={() => setTeamIntent('JOIN')}
+                    className={cn(
+                      'rounded border px-gutter-sm py-gutter-xs text-left font-label text-label-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+                      teamIntent === 'JOIN'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-outline bg-surface-container text-on-surface-variant hover:border-primary/50',
+                    )}
+                  >
+                    Unirme a una sala
+                    <span className="mt-1 block font-body text-[11px]">
+                      Ingresa el código que te compartieron.
+                    </span>
+                  </button>
+                </div>
+                {teamIntent === 'JOIN' && (
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="room-code" className="font-label text-label-sm text-on-surface">
+                      Código de sala
+                    </label>
+                    <input
+                      id="room-code"
+                      name="roomCode"
+                      type="text"
+                      value={joinCode}
+                      maxLength={12}
+                      autoComplete="off"
+                      onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                      placeholder="A1B2C3"
+                      className="w-full rounded border border-outline bg-surface-container px-gutter-md py-gutter-xs font-mono text-mono-sm uppercase tracking-wider text-primary placeholder:text-on-surface-variant focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            <StepFooter
+              onNext={goNext}
+              canGoBack={false}
+              nextDisabled={
+                gameMode === 'TEAM' &&
+                (!teamIntent ||
+                  (teamIntent === 'JOIN' && joinCode.trim().length < 4))
+              }
+            />
           </StepShell>
-        );
+        )}</LocalizedOutput>;
 
       case 1:
-        return (
+        return <LocalizedOutput>{(
           <StepShell
             key="difficulty"
             title="Define la experiencia"
@@ -252,10 +326,10 @@ export function MissionSetupTemplate({
             </div>
             <StepFooter onBack={goBack} onNext={goNext} />
           </StepShell>
-        );
+        )}</LocalizedOutput>;
 
       case 2:
-        return (
+        return <LocalizedOutput>{(
           <StepShell
             key="role"
             title="Elige tu segmento"
@@ -294,10 +368,10 @@ export function MissionSetupTemplate({
             </div>
             <StepFooter onBack={goBack} onNext={goNext} />
           </StepShell>
-        );
+        )}</LocalizedOutput>;
 
       case 3:
-        return (
+        return <LocalizedOutput>{(
           <StepShell
             key="commander"
             title="¿Cómo te llamamos?"
@@ -335,10 +409,10 @@ export function MissionSetupTemplate({
               nextLabel="Elegir misión"
             />
           </StepShell>
-        );
+        )}</LocalizedOutput>;
 
       case 4:
-        return (
+        return <LocalizedOutput>{(
           <StepShell
             key="mission"
             title="Elige el objetivo de tu tripulación"
@@ -400,10 +474,10 @@ export function MissionSetupTemplate({
               nextLabel="Revisar y confirmar"
             />
           </StepShell>
-        );
+        )}</LocalizedOutput>;
 
       default:
-        return (
+        return <LocalizedOutput>{(
           <StepShell
             key="confirm"
             title="Confirma tu plan de misión"
@@ -453,25 +527,16 @@ export function MissionSetupTemplate({
             )}
 
             {gameMode === 'TEAM' && (
-              <div className="flex flex-col gap-gutter-sm rounded border border-outline-variant bg-surface-container/70 p-gutter-sm">
-                <label htmlFor="room-code" className="font-label text-label-sm text-on-surface">
-                  ¿Te invitaron a una sala? Ingresa su código (opcional)
-                </label>
-                <input
-                  id="room-code"
-                  name="roomCode"
-                  type="text"
-                  value={joinCode}
-                  maxLength={12}
-                  autoComplete="off"
-                  onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-                  placeholder="A1B2C3"
-                  className="w-full rounded border border-outline bg-surface-container px-gutter-md py-gutter-xs font-mono text-mono-sm uppercase tracking-wider text-primary placeholder:text-on-surface-variant focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <p className="font-body text-[11px] text-on-surface-variant">
-                  {joinCode.trim()
-                    ? 'Al unirte, la configuración de misión y dificultad será la de la persona anfitriona.'
-                    : 'Al crear una sala, podrás invitar a tu tripulación antes de abrir el diseño.'}
+              <div className="rounded border border-outline-variant bg-surface-container/70 p-gutter-sm">
+                <p className="font-label text-label-sm text-on-surface">
+                  {teamIntent === 'JOIN'
+                    ? `Te unirás a la sala ${joinCode.trim()}.`
+                    : 'Crearás una sala nueva para invitar a tu tripulación.'}
+                </p>
+                <p className="mt-1 font-body text-[11px] text-on-surface-variant">
+                  {teamIntent === 'JOIN'
+                    ? 'La misión y dificultad serán las de la persona anfitriona.'
+                    : 'El código de sala aparecerá en el lobby para que lo compartas.'}
                 </p>
               </div>
             )}
@@ -485,7 +550,9 @@ export function MissionSetupTemplate({
             <p className="font-body text-[11px] leading-relaxed text-on-surface-variant">
               {gameMode === 'SOLO'
                 ? 'Tu sesión individual abrirá el diseño de la nave al confirmar.'
-                : 'La sala de equipo se abrirá primero para que la tripulación se reúna y asigne sus segmentos.'}
+                : teamIntent === 'JOIN'
+                  ? 'Al unirte, elegirás un segmento disponible en el lobby de la sala.'
+                  : 'La sala se abrirá primero para que la tripulación se reúna y asigne sus segmentos.'}
             </p>
 
             <div className="flex flex-col gap-gutter-sm sm:flex-row sm:items-center sm:justify-between">
@@ -500,13 +567,15 @@ export function MissionSetupTemplate({
                   busy ||
                   !playerName.trim() ||
                   !mission ||
-                  (gameMode === 'TEAM' && Boolean(joinCode.trim()) && joinCode.trim().length < 4)
+                  (gameMode === 'TEAM' &&
+                    (!teamIntent ||
+                      (teamIntent === 'JOIN' && joinCode.trim().length < 4)))
                 }
                 className="w-full sm:w-auto"
               >
                 {busy
                   ? 'Preparando misión…'
-                  : gameMode === 'TEAM' && joinCode.trim()
+                  : gameMode === 'TEAM' && teamIntent === 'JOIN'
                     ? 'Confirmar y unirme'
                     : gameMode === 'TEAM'
                       ? 'Confirmar y crear sala'
@@ -514,11 +583,11 @@ export function MissionSetupTemplate({
               </ActionButton>
             </div>
           </StepShell>
-        );
+        )}</LocalizedOutput>;
     }
   };
 
-  return (
+  return <LocalizedOutput>{(
     <main className="flex min-h-screen flex-1 items-center justify-center overflow-y-auto p-gutter-md sm:p-gutter-lg">
       <section
         aria-labelledby="setup-title"
@@ -642,7 +711,7 @@ export function MissionSetupTemplate({
         </aside>
       </section>
     </main>
-  );
+  )}</LocalizedOutput>;
 }
 
 function StepShell({
@@ -654,7 +723,7 @@ function StepShell({
   subtitle: string;
   children: ReactNode;
 }) {
-  return (
+  return <LocalizedOutput>{(
     <section className="animate-setup-enter flex flex-1 flex-col gap-gutter-md" aria-labelledby={`step-${title}`}>
       <div>
         <h2 id={`step-${title}`} className="font-headline text-headline-md text-on-surface">
@@ -664,13 +733,13 @@ function StepShell({
       </div>
       {children}
     </section>
-  );
+  )}</LocalizedOutput>;
 }
 
 function MissionThumbnail({ mission }: { mission: MissionConfig }) {
   const [imageFailed, setImageFailed] = useState(false);
 
-  return (
+  return <LocalizedOutput>{(
     <span className="flex h-20 w-24 shrink-0 items-center justify-center overflow-hidden rounded border border-outline-variant bg-surface-container sm:h-24 sm:w-32">
       {mission.imageUrl && !imageFailed ? (
         <img
@@ -684,7 +753,7 @@ function MissionThumbnail({ mission }: { mission: MissionConfig }) {
         <Satellite className="h-7 w-7 text-primary/70" aria-hidden="true" />
       )}
     </span>
-  );
+  )}</LocalizedOutput>;
 }
 
 function StepFooter({
@@ -700,7 +769,7 @@ function StepFooter({
   nextDisabled?: boolean;
   nextLabel?: string;
 }) {
-  return (
+  return <LocalizedOutput>{(
     <div className="mt-auto flex items-center justify-between gap-gutter-md border-t border-outline-variant pt-gutter-md">
       {canGoBack && onBack ? (
         <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 font-label text-label-lg text-on-surface-variant transition-colors hover:text-on-surface">
@@ -720,14 +789,14 @@ function StepFooter({
         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
       </button>
     </div>
-  );
+  )}</LocalizedOutput>;
 }
 
 function SummaryPill({ children }: { children: ReactNode }) {
-  return (
+  return <LocalizedOutput>{(
     <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-surface-container px-2 py-1 font-body text-[10px] text-on-surface">
       <Sparkles className="h-3 w-3 text-primary" aria-hidden="true" />
       {children}
     </span>
-  );
+  )}</LocalizedOutput>;
 }

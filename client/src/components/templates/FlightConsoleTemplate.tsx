@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import { GraduationCap, HardHat, Satellite } from 'lucide-react';
 import type { DifficultyMode, MissionConfig, RoleType } from '@shared/types';
 import { cn } from '../../lib/cn';
+import { LocalizedOutput } from '../../lib/i18n';
 import {
   ConsoleHeader,
   MeterBar,
@@ -271,7 +272,7 @@ export function FlightConsoleTemplate({
     : { label: 'Modo Ingeniero · Manual', icon: HardHat, tone: 'accent' as const };
   const safeProgress = Math.max(0, Math.min(100, progress));
 
-  return (
+  return <LocalizedOutput>{(
     <div className="flex min-h-screen flex-col bg-surface text-on-surface">
       <ConsoleHeader
         section="Seguimiento Orbital"
@@ -462,5 +463,5 @@ export function FlightConsoleTemplate({
         </Panel>
       </main>
     </div>
-  );
+  )}</LocalizedOutput>;
 }

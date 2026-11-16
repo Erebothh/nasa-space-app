@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { LocalizedOutput } from '../../lib/i18n';
 import { useDesignStore } from '../../store/useDesignStore';
 
 const TONE_CLASS: Record<string, string> = {
@@ -12,7 +13,7 @@ export function ToastStack() {
   const toasts = useDesignStore((state) => state.toasts);
   const dismiss = useDesignStore((state) => state.dismissToast);
 
-  return (
+  return <LocalizedOutput>{(
     <div
       className="fixed bottom-4 right-4 z-[60] flex w-[min(340px,calc(100vw-2rem))] flex-col gap-2"
       aria-live="polite"
@@ -38,5 +39,5 @@ export function ToastStack() {
         </div>
       ))}
     </div>
-  );
+  )}</LocalizedOutput>;
 }

@@ -130,6 +130,35 @@ describe('RoomService', () => {
     expect(rooms.getState('TEAM6').phase).toBe('DESIGN');
   });
 
+  it('resets a completed mission in the same room and keeps the crew assigned', () => {
+    const rooms = new RoomService();
+    rooms.createRoom('host', {
+      roomId: 'REPLAY1',
+      playerName: 'Host',
+      difficulty: 'APPRENTICE',
+    });
+    rooms.joinRoom('guest', { roomId: 'REPLAY1', playerName: 'Guest' });
+    rooms.selectRole('REPLAY1', 'host', 'PROPULSION');
+    rooms.selectRole('REPLAY1', 'guest', 'SCIENCE');
+    rooms.startDesign('REPLAY1', 'host');
+    rooms.startFlight('REPLAY1', 'host');
+    rooms.finishFlight('REPLAY1');
+
+    const reset = rooms.resetMission('REPLAY1', 'host', 'lunar-surface-survey');
+
+    expect(reset.roomId).toBe('REPLAY1');
+    expect(reset.phase).toBe('LOBBY');
+    expect(reset.mission.id).toBe('lunar-surface-survey');
+    expect(reset.selectedModules).toEqual([]);
+    expect(reset.players.map((player) => [player.id, player.role, player.ready])).toEqual([
+      ['host', 'PROPULSION', true],
+      ['guest', 'SCIENCE', true],
+    ]);
+    expect(() => rooms.resetMission('REPLAY1', 'guest', 'leo-earth-observation')).toThrow(
+      'Solo quien creó la sala',
+    );
+  });
+
   it('reports a non-text room code as a validation error instead of crashing', () => {
     const rooms = new RoomService();
 

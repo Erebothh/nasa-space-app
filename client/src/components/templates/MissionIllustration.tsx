@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Rocket } from 'lucide-react';
 import type { MissionConfig } from '@shared/types';
 import { cn } from '../../lib/cn';
+import { LocalizedOutput } from '../../lib/i18n';
 
 export function MissionIllustration({
   mission,
@@ -15,7 +16,7 @@ export function MissionIllustration({
   const [imageFailed, setImageFailed] = useState(false);
   const label = isLunar ? 'Objetivo lunar' : isDeepSpace ? 'Espacio profundo' : 'Órbita baja terrestre';
 
-  return (
+  return <LocalizedOutput>{(
     <div
       className={cn(
         'relative h-44 overflow-hidden rounded-md border border-primary/20 bg-surface',
@@ -119,5 +120,5 @@ export function MissionIllustration({
         </p>
       </div>
     </div>
-  );
+  )}</LocalizedOutput>;
 }

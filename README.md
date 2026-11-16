@@ -75,8 +75,21 @@ El backend entrega los catálogos locales por HTTP:
 - `GET /api/flight/config`
 
 La sincronización de partidas usa Socket.io: `room:create`, `room:join`, `room:start`,
-`role:select`, `design:propose_module`, `design:vote`, `mission:launch` y `flight:action`.
-Durante el vuelo, `flight:tick_asym` se emite individualmente según el rol del jugador.
+`room:reset`, `role:select`, `design:propose_module`, `design:vote`, `mission:launch` y
+`flight:action`. Durante el vuelo, `flight:tick_asym` se emite individualmente según el rol
+del jugador.
+
+## Salas, incidentes y audio
+
+En modo equipo se elige explícitamente entre crear una sala o unirse con un código. Al terminar,
+el anfitrión puede repetir la misma misión o escoger otra; en ambos casos la tripulación vuelve
+al lobby conservando la sala, el código y sus roles. Cada vuelo programa tres incidentes
+aleatorios en distintas fases y el informe muestra cuáles se resolvieron.
+
+La música ambiental y los sonidos de interfaz se sintetizan localmente. Las alertas y los
+diálogos educativos de AlvaBot se publican en MP3 en `client/public/audio/` para compatibilidad
+con navegadores. El control de sonido permite silenciarlos y la reproducción comienza después
+de la primera interacción del usuario para respetar las restricciones de autoplay del navegador.
 
 La página de recursos del [desafío Space Mission Design Game de NASA](https://www.spaceappschallenge.org/2026/challenges/space-mission-design-game/?tab=resources)
 ofrece documentación, herramientas y visualizadores (como GMAT, Mission Viz y el Mission

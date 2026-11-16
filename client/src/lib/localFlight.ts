@@ -5,6 +5,7 @@ import type {
   FlightActionType,
   FlightCrisisAlert,
   FlightEventDefinition,
+  FlightIncident,
   FlightOutcome,
   MissionConfig,
   MissionReport,
@@ -26,6 +27,8 @@ export interface LocalFlightState {
   progress: number;
   act: FlightAct;
   activeEvent: FlightEventDefinition;
+  activeIncidentIndex: number;
+  incidents: FlightIncident[];
   crisisTriggered: boolean;
   crisisResolved: boolean;
   activeSensorIds: string[];
@@ -42,13 +45,15 @@ export interface LocalFlightState {
 export interface LocalFlightAdvance {
   state: LocalFlightState;
   crisisStarted: boolean;
+  newIncidents: FlightIncident[];
   completed: boolean;
 }
 
 function selectEvent(
   telemetry: TelemetryMetrics,
   mission: MissionConfig,
-): FlightEventDefinition {
+  random: () => number = Math.random,
+): FlightEventDefinition[] {
   const recoveryRatio = estimateDataRecoveryRatio(
     telemetry.totalDataGenerated,
     telemetry.totalDownlinkCapacity,
@@ -62,11 +67,20 @@ function selectEvent(
         : recoveryRatio < mission.requiredDownlinkRatio
           ? 'LOW_DOWNLINK'
           : 'NOMINAL';
-  const event = FLIGHT_EVENTS.find((candidate) => candidate.trigger === trigger);
-  if (!event) {
+  const firstEvent = FLIGHT_EVENTS.find((candidate) => candidate.trigger === trigger);
+  if (!firstEvent) {
     throw new Error(`No hay un evento de vuelo configurado para "${trigger}".`);
   }
-  return event;
+  const remainingEvents = FLIGHT_EVENTS.filter((event) => event.id !== firstEvent.id);
+  const events = [firstEvent];
+  while (events.length < FLIGHT_CONFIG.eventProgressPercentages.length) {
+    const sample = random();
+    const index = Number.isFinite(sample)
+      ? Math.min(remainingEvents.length - 1, Math.max(0, Math.floor(sample * remainingEvents.length)))
+      : 0;
+    events.push(remainingEvents.splice(index, 1)[0]);
+  }
+  return events;
 }
 
 export function createLocalFlight(input: {
@@ -77,12 +91,20 @@ export function createLocalFlight(input: {
   role: RoleType;
   startedAt?: number;
 }): LocalFlightState {
+  const events = selectEvent(input.telemetry, input.mission);
   return {
     startedAt: input.startedAt ?? Date.now(),
     durationMs: FLIGHT_CONFIG.durationSeconds * 1000,
     progress: 0,
     act: 'ASCENT_INSERTION',
-    activeEvent: selectEvent(input.telemetry, input.mission),
+    activeEvent: events[0],
+    activeIncidentIndex: -1,
+    incidents: events.map((event, index) => ({
+      event,
+      progressPercent: FLIGHT_CONFIG.eventProgressPercentages[index],
+      triggered: false,
+      resolved: false,
+    })),
     crisisTriggered: false,
     crisisResolved: false,
     activeSensorIds: input.modules
@@ -110,17 +132,38 @@ export function advanceLocalFlight(
       : progress < FLIGHT_CONFIG.crisisActEndPercent
         ? 'CRISIS'
         : 'OPERATIONS';
-  const crisisStarted =
-    !current.crisisTriggered && progress >= FLIGHT_CONFIG.crisisProgressPercent;
+  const newIncidents = current.incidents
+    .filter((incident) => !incident.triggered && progress >= incident.progressPercent)
+    .map((incident) => ({ ...incident, triggered: true }));
+  const incidents = current.incidents.map((incident) =>
+    !incident.triggered && progress >= incident.progressPercent
+      ? { ...incident, triggered: true }
+      : incident,
+  );
+  const activeIncidentIndex =
+    newIncidents.length > 0
+      ? incidents.findIndex(
+          (incident) =>
+            incident.event.id === newIncidents[newIncidents.length - 1].event.id,
+        )
+      : current.activeIncidentIndex;
+  const activeIncident =
+    activeIncidentIndex >= 0 ? incidents[activeIncidentIndex] : null;
+  const crisisStarted = newIncidents.length > 0;
 
   return {
     state: {
       ...current,
       progress,
       act,
-      crisisTriggered: current.crisisTriggered || crisisStarted,
+      incidents,
+      activeEvent: activeIncident?.event ?? current.activeEvent,
+      activeIncidentIndex,
+      crisisTriggered: activeIncidentIndex >= 0,
+      crisisResolved: activeIncident?.resolved ?? current.crisisResolved,
     },
     crisisStarted,
+    newIncidents,
     completed: progress >= 100,
   };
 }
@@ -132,6 +175,21 @@ export function buildCrisisAlert(state: LocalFlightState): FlightCrisisAlert | n
     title: state.activeEvent.title,
     severity: state.activeEvent.severity,
     description: state.activeEvent.description,
+    eventNumber: state.activeIncidentIndex + 1,
+    totalEvents: state.incidents.length,
+  };
+}
+
+function resolveActiveIncident(current: LocalFlightState): LocalFlightState {
+  if (current.activeIncidentIndex < 0) {
+    throw new Error('No hay un incidente activo para resolver.');
+  }
+  return {
+    ...current,
+    crisisResolved: true,
+    incidents: current.incidents.map((incident, index) =>
+      index === current.activeIncidentIndex ? { ...incident, resolved: true } : incident,
+    ),
   };
 }
 
@@ -153,6 +211,8 @@ export function buildLocalPayload(state: LocalFlightState): AsymmetricFlightPayl
               title: state.activeEvent.title,
               severity: state.activeEvent.severity,
               description: state.activeEvent.description,
+              eventNumber: state.activeIncidentIndex + 1,
+              totalEvents: state.incidents.length,
             },
           ]
         : [],
@@ -257,7 +317,10 @@ export function applyLocalAction(
 ): LocalFlightState {
   if (actionType === 'SOLVE_PUZZLE') {
     if (!current.crisisTriggered) {
-      throw new Error('El acertijo estará disponible al comenzar la fase crítica.');
+      throw new Error('El acertijo estará disponible cuando se active un incidente.');
+    }
+    if (current.crisisResolved) {
+      throw new Error('El incidente activo ya está resuelto.');
     }
     if (!current.activeEvent.puzzle) {
       throw new Error('No hay un acertijo de crisis activo.');
@@ -273,7 +336,7 @@ export function applyLocalAction(
     ) {
       throw new Error('La respuesta del acertijo no es correcta.');
     }
-    return { ...current, crisisResolved: true };
+    return resolveActiveIncident(current);
   }
 
   if (actionType === 'TOGGLE_SENSOR') {
@@ -304,7 +367,10 @@ export function applyLocalAction(
     throw new Error('Solo el Director de Misión puede tomar decisiones ejecutivas.');
   }
   if (!current.crisisTriggered) {
-    throw new Error('La decisión ejecutiva estará disponible al comenzar la fase crítica.');
+    throw new Error('La decisión ejecutiva estará disponible cuando se active un incidente.');
+  }
+  if (current.crisisResolved) {
+    throw new Error('El incidente activo ya está resuelto.');
   }
   if (payload.decision !== 'SACRIFICE_EXPERIMENT') {
     throw new Error('La decisión ejecutiva solicitada no es válida.');
@@ -316,13 +382,12 @@ export function applyLocalAction(
   if (!experiment || current.disabledExperimentIds.includes(moduleId)) {
     throw new Error('El experimento no está activo o ya fue sacrificado.');
   }
-  return {
+  return resolveActiveIncident({
     ...current,
     activeSensorIds: current.activeSensorIds.filter((id) => id !== moduleId),
     disabledExperimentIds: [...current.disabledExperimentIds, moduleId],
     decisions: [...current.decisions, `SACRIFICE_EXPERIMENT:${moduleId}`],
-    crisisResolved: true,
-  };
+  });
 }
 
 export function buildLocalReport(
@@ -358,11 +423,11 @@ export function buildLocalReport(
       ? FLIGHT_CONFIG.scoreWeights.data
       : FLIGHT_CONFIG.scoreWeights.data *
         Math.min(1, dataRecoveryRatio / state.mission.requiredDownlinkRatio);
-  const operationsScore = state.crisisResolved
-    ? FLIGHT_CONFIG.scoreWeights.operations
-    : state.activeEvent.severity === 'LOW'
-      ? FLIGHT_CONFIG.scoreWeights.operations * 0.75
-      : FLIGHT_CONFIG.scoreWeights.operations * 0.4;
+  const resolvedIncidents = state.incidents.filter((incident) => incident.resolved).length;
+  const crisisResolved =
+    state.incidents.length > 0 && resolvedIncidents === state.incidents.length;
+  const operationsScore =
+    FLIGHT_CONFIG.scoreWeights.operations * (resolvedIncidents / state.incidents.length);
   const score = Math.round(scienceScore + dataScore + operationsScore);
 
   const rootCauses: MissionReport['rootCauses'] = [];
@@ -388,33 +453,29 @@ export function buildLocalReport(
       'Aumentar capacidad de enlace o reducir la generación de datos.',
     );
   }
-  if (state.activeEvent.trigger !== 'NOMINAL' || !state.crisisResolved) {
-    rootCauses.push({
-      code: state.activeEvent.id,
-      title: state.activeEvent.title,
-      explanation: state.crisisResolved
-        ? `${state.activeEvent.rootCause} El equipo resolvió la crisis durante el vuelo.`
-        : `${state.activeEvent.rootCause} La crisis quedó sin resolver.`,
-    });
-    if (!state.crisisResolved) {
-      recommendations.push(state.activeEvent.recommendation);
+  for (const incident of state.incidents) {
+    if (incident.event.trigger !== 'NOMINAL' || !incident.resolved) {
+      rootCauses.push({
+        code: incident.event.id,
+        title: incident.event.title,
+        explanation: incident.resolved
+          ? `${incident.event.rootCause} El equipo resolvió el incidente durante el vuelo.`
+          : `${incident.event.rootCause} El incidente quedó sin resolver.`,
+      });
+    }
+    if (!incident.resolved) {
+      recommendations.push(incident.event.recommendation);
     }
   }
-  // La crisis activa ya explica su propia alerta de diseño: solo se añaden las demás.
-  const activeEventWarningCode: Partial<Record<FlightEventDefinition['trigger'], string>> = {
-    POWER_DEFICIT: 'POWER_DEFICIT',
-    STRUCTURAL_STRESS: 'STRUCTURAL_STRESS',
-    LOW_DOWNLINK: 'LOW_DOWNLINK',
-  };
   for (const warning of state.auditWarnings) {
     if (
       (warning.code === 'STRUCTURAL_STRESS' || warning.code === 'POWER_DEFICIT') &&
-      warning.code !== activeEventWarningCode[state.activeEvent.trigger]
+      !state.incidents.some((incident) => incident.event.trigger === warning.code)
     ) {
       rootCauses.push({
         code: warning.code,
         title: warning.message,
-        explanation: state.crisisResolved
+        explanation: crisisResolved
           ? `${warning.message} La alerta fue gestionada durante el vuelo.`
           : `${warning.message} La debilidad de diseño seguía presente al terminar el vuelo.`,
       });
@@ -430,7 +491,7 @@ export function buildLocalReport(
   }
 
   const outcome: FlightOutcome =
-    score >= FLIGHT_CONFIG.outcomeThresholds.success && state.crisisResolved
+    score >= FLIGHT_CONFIG.outcomeThresholds.success && crisisResolved
       ? 'SUCCESS'
       : score >= FLIGHT_CONFIG.outcomeThresholds.partial
         ? 'PARTIAL'
@@ -442,7 +503,14 @@ export function buildLocalReport(
     score,
     sciencePointsEarned,
     dataRecoveryRatio,
-    crisisResolved: state.crisisResolved,
+    crisisResolved,
+    incidents: state.incidents.map((incident) => ({
+      eventId: incident.event.id,
+      title: incident.event.title,
+      severity: incident.event.severity,
+      progressPercent: incident.progressPercent,
+      resolved: incident.resolved,
+    })),
     rootCauses,
     recommendations: [...new Set(recommendations)],
     missionReference: state.mission.realNasaReference,

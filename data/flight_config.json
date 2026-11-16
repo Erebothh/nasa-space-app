@@ -3,6 +3,7 @@
   "tickIntervalMs": 1000,
   "crisisProgressPercent": 40,
   "crisisActEndPercent": 45,
+  "eventProgressPercentages": [15, 42, 75],
   "baseFuelPercent": 100,
   "fuelConsumptionPercentPerProgress": 0.82,
   "baseTemperatureC": 18,

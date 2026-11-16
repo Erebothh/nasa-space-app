@@ -1,3 +1,5 @@
+import { LocalizedOutput } from '../../lib/i18n';
+
 export interface BlueprintProps {
   /** 0: lanzador · 1: satélite · 2: órbita */
   view: number;
@@ -80,7 +82,7 @@ function Orbit({ hasSCI, hasCOM }: Pick<BlueprintProps, 'hasSCI' | 'hasCOM'>) {
  * un contexto WebGL o cuando no se puede descargar el visor.
  */
 export function BlueprintFallback({ view, hasEST, hasSCI, hasCOM }: BlueprintProps) {
-  return (
+  return <LocalizedOutput>{(
     <svg
       viewBox="0 0 320 290"
       className="h-full max-h-[420px] w-full"
@@ -95,5 +97,5 @@ export function BlueprintFallback({ view, hasEST, hasSCI, hasCOM }: BlueprintPro
         <Orbit hasSCI={hasSCI} hasCOM={hasCOM} />
       )}
     </svg>
-  );
+  )}</LocalizedOutput>;
 }

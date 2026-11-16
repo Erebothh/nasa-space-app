@@ -6,6 +6,7 @@ import {
   listMissions,
   listModules,
   selectFlightEvent,
+  selectFlightEvents,
 } from './catalog.js';
 
 describe('NASA-inspired local catalogs', () => {
@@ -57,6 +58,22 @@ describe('NASA-inspired local catalogs', () => {
     );
 
     expect(event.id).toBe('low-downlink');
+  });
+
+  it('schedules three distinct incidents and keeps the design-driven incident first', () => {
+    const telemetry = {
+      massPercentage: 30,
+      powerConsumedKw: 10,
+      powerGeneratedKw: 20,
+      totalDataGenerated: 10,
+      totalDownlinkCapacity: 10,
+    };
+    const mission = getMissionById('leo-earth-observation');
+    const events = selectFlightEvents(telemetry, mission, () => 0);
+
+    expect(events).toHaveLength(3);
+    expect(events[0].id).toBe(selectFlightEvent(telemetry, mission).id);
+    expect(new Set(events.map((event) => event.id)).size).toBe(3);
   });
 
   it('does not expose missing scenario IDs as undefined', () => {

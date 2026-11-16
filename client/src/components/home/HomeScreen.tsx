@@ -17,6 +17,7 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
+import { LocalizedOutput } from '../../lib/i18n';
 import { ROLE_META, ROLE_ORDER } from '../../lib/roles';
 import { useDesignStore } from '../../store/useDesignStore';
 import { ActionButton, Pill } from '../templates/ConsolePrimitives';
@@ -147,7 +148,7 @@ function HeroOrbit() {
     return () => window.cancelAnimationFrame(frameId);
   }, []);
 
-  return (
+  return <LocalizedOutput>{(
     <div className="home-orbit-illustration relative aspect-[26/21] w-full">
       <svg
         viewBox="0 0 520 420"
@@ -248,13 +249,13 @@ function HeroOrbit() {
         <Orbiter groupRef={foregroundSatelliteRef} opacity={0} />
       </svg>
     </div>
-  );
+  )}</LocalizedOutput>;
 }
 
 export function HomeScreen({ onStart }: { onStart: () => void }) {
   const missions = useDesignStore((state) => state.missions);
 
-  return (
+  return <LocalizedOutput>{(
     <div className="flex min-h-screen flex-col bg-surface text-on-surface">
       <header className="flex flex-wrap items-center justify-between gap-gutter-md border-b border-outline-variant bg-surface-container-low px-gutter-lg py-gutter-md">
         <div className="flex items-center gap-gutter-sm">
@@ -456,5 +457,5 @@ export function HomeScreen({ onStart }: { onStart: () => void }) {
         </p>
       </footer>
     </div>
-  );
+  )}</LocalizedOutput>;
 }

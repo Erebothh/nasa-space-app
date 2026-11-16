@@ -1,3 +1,4 @@
+import { LocalizedOutput } from '../../lib/i18n';
 import { useEffect, useState } from 'react';
 import {
   Antenna,
@@ -21,6 +22,7 @@ import type { AsymmetricFlightPayload, ModuleItem, RoleType } from '@shared/type
 import { cn } from '../../lib/cn';
 import { ACT_LABEL } from '../../lib/gameLabels';
 import { ROLE_META, ROLE_ORDER } from '../../lib/roles';
+import { playCrisisAlert } from '../../lib/audio';
 import { useDesignStore } from '../../store/useDesignStore';
 import {
   ActionButton,
@@ -89,7 +91,7 @@ function PuzzleForm({
 }) {
   const [answer, setAnswer] = useState('');
 
-  return (
+  return <LocalizedOutput>{(
     <form
       className="flex w-full flex-col gap-gutter-sm"
       onSubmit={(event) => {
@@ -114,7 +116,7 @@ function PuzzleForm({
         </ActionButton>
       </div>
     </form>
-  );
+  )}</LocalizedOutput>;
 }
 
 function RoleConsole({
@@ -131,7 +133,7 @@ function RoleConsole({
   onSacrifice: (moduleId: string) => void;
 }) {
   if (flight.role === 'PROPULSION') {
-    return (
+    return <LocalizedOutput>{(
       <div className="flex w-full flex-col items-center gap-gutter-md">
         <div className="flex items-center gap-2 font-label text-label-lg text-accent">
           <Flame className="h-4 w-4" aria-hidden="true" />
@@ -185,11 +187,11 @@ function RoleConsole({
           ))}
         </div>
       </div>
-    );
+    )}</LocalizedOutput>;
   }
 
   if (flight.role === 'SCIENCE') {
-    return (
+    return <LocalizedOutput>{(
       <div className="flex w-full flex-col gap-gutter-md">
         <div className="flex items-center gap-gutter-sm font-label text-label-lg text-primary">
           <FlaskConical className="h-4 w-4" aria-hidden="true" />
@@ -242,11 +244,11 @@ function RoleConsole({
           </ul>
         )}
       </div>
-    );
+    )}</LocalizedOutput>;
   }
 
   if (flight.role === 'COMMS') {
-    return (
+    return <LocalizedOutput>{(
       <div className="flex w-full flex-col items-center gap-gutter-md">
         <div className="flex items-center gap-2 font-label text-label-lg text-success">
           <RadioTower className="h-4 w-4" aria-hidden="true" />
@@ -294,7 +296,7 @@ function RoleConsole({
           )}
         </div>
       </div>
-    );
+    )}</LocalizedOutput>;
   }
 
   const experiments = modules.filter(
@@ -302,7 +304,7 @@ function RoleConsole({
       module.category === 'SCI' && flight.activeExperimentIds.includes(module.id),
   );
 
-  return (
+  return <LocalizedOutput>{(
     <div className="flex w-full flex-col gap-gutter-md">
       <div className="flex items-center gap-gutter-sm font-label text-label-lg text-primary">
         <Compass className="h-4 w-4" aria-hidden="true" />
@@ -361,7 +363,7 @@ function RoleConsole({
         </p>
       )}
     </div>
-  );
+  )}</LocalizedOutput>;
 }
 
 function buildStats(flight: AsymmetricFlightPayload, modules: ModuleItem[]): FlightStat[] {
@@ -510,10 +512,14 @@ export function FlightScreen() {
     if (flight) setActiveGame(ROLE_TO_GAME[flight.role]);
   }, [flight?.role]);
 
+  useEffect(() => {
+    if (crisisAlert) playCrisisAlert(crisisAlert.eventId);
+  }, [crisisAlert]);
+
   const isSolo = localMode || (roomState?.players.length ?? 1) <= 1;
 
   if (!flight) {
-    return (
+    return <LocalizedOutput>{(
       <div className="flex min-h-screen flex-col bg-surface text-on-surface">
         <ConsoleHeader
           section="Seguimiento Orbital"
@@ -545,7 +551,7 @@ export function FlightScreen() {
           </Panel>
         </main>
       </div>
-    );
+    )}</LocalizedOutput>;
   }
 
   const modules = roomState?.selectedModules ?? [];
@@ -584,7 +590,7 @@ export function FlightScreen() {
           const meta = ROLE_META[role];
           const Icon = meta.icon;
           const active = flight.role === role;
-          return (
+          return <LocalizedOutput>{(
             <button
               key={role}
               type="button"
@@ -603,7 +609,7 @@ export function FlightScreen() {
               <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span className="truncate">{meta.shortLabel}</span>
             </button>
-          );
+          )}</LocalizedOutput>;
         })}
       </div>
       <p className="font-body text-[10px] leading-tight text-on-surface-variant">
@@ -634,7 +640,7 @@ export function FlightScreen() {
         />
         <div className="min-w-0">
           <p className="font-label text-label-lg text-on-surface">
-            Crisis en vuelo: {crisisAlert.title}
+            Incidente {crisisAlert.eventNumber}/{crisisAlert.totalEvents}: {crisisAlert.title}
           </p>
           <p className="truncate font-body text-[11px] text-on-surface-variant">
             {crisisAlert.description}
@@ -650,7 +656,7 @@ export function FlightScreen() {
     </section>
   ) : null;
 
-  return (
+  return <LocalizedOutput>{(
     <div className="flex min-h-screen flex-col bg-surface text-on-surface">
       <FlightConsoleTemplate
         mode={difficulty}
@@ -714,5 +720,5 @@ export function FlightScreen() {
         />
       )}
     </div>
-  );
+  )}</LocalizedOutput>;
 }

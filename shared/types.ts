@@ -83,6 +83,7 @@ export interface FlightSimulationConfig {
   tickIntervalMs: number;
   crisisProgressPercent: number;
   crisisActEndPercent: number;
+  eventProgressPercentages: number[];
   baseFuelPercent: number;
   fuelConsumptionPercentPerProgress: number;
   baseTemperatureC: number;
@@ -166,11 +167,28 @@ export interface FlightEventDefinition {
   };
 }
 
+export interface FlightIncident {
+  event: FlightEventDefinition;
+  progressPercent: number;
+  triggered: boolean;
+  resolved: boolean;
+}
+
+export interface MissionReportIncident {
+  eventId: string;
+  title: string;
+  severity: FlightEventDefinition['severity'];
+  progressPercent: number;
+  resolved: boolean;
+}
+
 export interface FlightCrisisAlert {
   eventId: string;
   title: string;
   severity: FlightEventDefinition['severity'];
   description: string;
+  eventNumber: number;
+  totalEvents: number;
 }
 
 export interface FlightTickBase {
@@ -223,6 +241,7 @@ export interface MissionReport {
   sciencePointsEarned: number;
   dataRecoveryRatio: number;
   crisisResolved: boolean;
+  incidents: MissionReportIncident[];
   rootCauses: { code: string; title: string; explanation: string }[];
   recommendations: string[];
   missionReference: MissionConfig['realNasaReference'];
@@ -243,6 +262,7 @@ export interface ClientToServerEvents {
   }) => void;
   'room:join': (payload: { roomId: string; playerName: string }) => void;
   'room:leave': (payload: { roomId: string }) => void;
+  'room:reset': (payload: { roomId: string; missionId: string }) => void;
   'room:start': (payload: { roomId: string }) => void;
   'role:select': (payload: { roomId: string; role: RoleType }) => void;
   'design:propose_module': (payload: {

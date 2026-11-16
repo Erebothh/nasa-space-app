@@ -19,6 +19,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { LocalizedOutput } from '../../lib/i18n';
 import { useDesignStore } from '../../store/useDesignStore';
 import { ROLE_META, ROLE_ORDER } from '../../lib/roles';
 import { ModuleCatalogModal } from './ModuleCatalogModal';
@@ -61,7 +62,7 @@ function LaunchSequenceOverlay({
   const hasSCI = useDesignStore((state) => state.selectedModules.some((module) => module.category === 'SCI'));
   const hasCOM = useDesignStore((state) => state.selectedModules.some((module) => module.category === 'COM'));
 
-  return (
+  return <LocalizedOutput>{(
     <div
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden bg-[#040814]"
       role="status"
@@ -95,7 +96,7 @@ function LaunchSequenceOverlay({
         Ignición · Ascenso · Inserción orbital
       </p>
     </div>
-  );
+  )}</LocalizedOutput>;
 }
 // ---- Top Bar ----
 function TopBar() {
@@ -158,7 +159,7 @@ function TopBar() {
     notify(`Consola cambiada a ${ROLE_META[role].label}.`, 'info');
   };
 
-  return (
+  return <LocalizedOutput>{(
     <>
     <header className="sticky top-0 z-30 min-h-14 shrink-0 border-b border-white/10 bg-[#0F1623] px-3 py-2 flex flex-wrap items-center justify-between gap-2 sm:px-4 lg:static">
       <div className="flex items-center gap-3 min-w-0">
@@ -237,7 +238,7 @@ function TopBar() {
       />
     )}
     </>
-  );
+  )}</LocalizedOutput>;
 }
 
 // ---- Left Column ----
@@ -254,7 +255,7 @@ function LeftColumn({ onOpen }: { onOpen: (v: 'EST' | 'SCI' | 'COM' | 'debate') 
 
   const btnBase = 'w-full flex items-center justify-between px-3 py-2.5 rounded border text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400';
 
-  return (
+  return <LocalizedOutput>{(
     <aside className="order-2 bg-[#0F1623] border-r border-white/10 flex flex-col overflow-visible p-3 gap-3 lg:order-1 lg:overflow-hidden">
       <div className="flex flex-col gap-2.5">
         <button onClick={() => onOpen('EST')} className={`${btnBase} border-white/10 bg-white/5 text-slate-200 hover:bg-white/10`}>
@@ -296,7 +297,7 @@ function LeftColumn({ onOpen }: { onOpen: (v: 'EST' | 'SCI' | 'COM' | 'debate') 
         )}
       </div>
     </aside>
-  );
+  )}</LocalizedOutput>;
 }
 
 // ---- Center Column ----
@@ -318,7 +319,7 @@ function CenterColumn() {
   const [briefOpen, setBriefOpen] = useState(true);
   const resetView = () => setResetKey(key => key + 1);
 
-  return (
+  return <LocalizedOutput>{(
     <section className="order-1 min-h-[520px] bg-[#090D16] flex flex-col overflow-hidden lg:order-2 lg:min-h-0">
       <div className="shrink-0 border-b border-white/10 bg-[#0F1623]/70 px-3 py-2.5">
         <div className="flex items-center gap-3">
@@ -434,7 +435,7 @@ function CenterColumn() {
         </span>
       </div>
     </section>
-  );
+  )}</LocalizedOutput>;
 }
 
 // ---- Blueprint views ----
@@ -472,7 +473,7 @@ function RightColumn() {
   const difficulty = useDesignStore(s => s.difficulty);
   const gauges = telemetry && mission ? buildDesignGauges(telemetry, mission) : [];
 
-  return (
+  return <LocalizedOutput>{(
     <aside className="order-3 bg-[#0F1623] border-l border-white/10 flex flex-col overflow-visible lg:overflow-hidden">
       <div className="shrink-0 border-b border-white/10 px-3 py-2">
         <h2 className="text-sm font-semibold text-white">Telemetría en vivo</h2>
@@ -522,7 +523,7 @@ function RightColumn() {
       </div>
 
     </aside>
-  );
+  )}</LocalizedOutput>;
 }
 
 // ---- Main ----
@@ -531,7 +532,7 @@ export function DesignScreen() {
   const [modalView, setModalView] = useState<'EST' | 'SCI' | 'COM' | 'debate' | null>(null);
 
   if (phase !== 'DESIGN') {
-    return (
+    return <LocalizedOutput>{(
       <div className="h-screen flex items-center justify-center bg-[#0B101B] text-slate-300">
         <div className="text-center">
           <Rocket className="h-8 w-8 mx-auto mb-2 text-cyan-400" aria-hidden="true" />
@@ -539,10 +540,10 @@ export function DesignScreen() {
           <p className="text-xs text-slate-500 mt-1">La Mesa de Diseño se activa en fase DESIGN.</p>
         </div>
       </div>
-    );
+    )}</LocalizedOutput>;
   }
 
-  return (
+  return <LocalizedOutput>{(
     <div className="min-h-[100dvh] flex flex-col bg-[#0B101B] text-slate-200 lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden">
       <TopBar />
       <div className="grid flex-1 grid-cols-1 gap-3 overflow-visible lg:min-h-0 lg:grid-cols-[minmax(240px,28fr)_minmax(360px,44fr)_minmax(240px,28fr)] lg:gap-0 lg:overflow-hidden">
@@ -552,5 +553,5 @@ export function DesignScreen() {
       </div>
       {modalView && <ModuleCatalogModal view={modalView} onClose={() => setModalView(null)} />}
     </div>
-  );
+  )}</LocalizedOutput>;
 }

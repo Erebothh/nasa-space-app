@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Satellite } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { useLanguage } from '../../lib/i18n';
 
 export type ConsoleTone = 'primary' | 'accent' | 'success' | 'warning' | 'error' | 'muted';
 
@@ -84,6 +85,8 @@ export function ConsoleHeader({
   right?: ReactNode;
   onHome?: () => void;
 }) {
+  const { language } = useLanguage();
+
   return (
     <header className="flex flex-wrap items-center justify-between gap-gutter-md border-b border-outline-variant bg-surface-container-low px-gutter-lg py-gutter-sm">
       <div className="flex min-w-0 flex-wrap items-center gap-gutter-md">
@@ -91,7 +94,7 @@ export function ConsoleHeader({
           type="button"
           onClick={onHome}
           className="flex items-center gap-gutter-sm rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-          aria-label="Volver al inicio de OrbitaLab"
+          aria-label={language === 'en' ? 'Return to OrbitaLab home' : 'Volver al inicio de OrbitaLab'}
         >
           <Satellite className="h-6 w-6 text-primary" aria-hidden="true" />
           <span className="font-headline text-title-md text-on-surface">OrbitaLab</span>

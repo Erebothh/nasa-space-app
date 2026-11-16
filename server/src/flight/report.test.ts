@@ -18,15 +18,22 @@ describe('generateMissionReport', () => {
     rooms.selectRole('REPORT1', 'solo', 'COMMS');
     rooms.proposeModule('REPORT1', 'solo', 'COM-02', 'ADD');
     const { state } = rooms.startFlight('REPORT1', 'solo');
+    const runtime = createFlightRuntime(
+      state.roomId,
+      0,
+      getMissionById('leo-earth-observation'),
+      state.selectedModules,
+      state.telemetry,
+    );
     const flight = {
-      ...createFlightRuntime(
-        state.roomId,
-        0,
-        getMissionById('leo-earth-observation'),
-        state.selectedModules,
-        state.telemetry,
-      ),
+      ...runtime,
       progress: 100,
+      incidents: runtime.incidents.map((incident) => ({
+        ...incident,
+        triggered: true,
+        resolved: true,
+      })),
+      activeIncidentIndex: 2,
       crisisTriggered: true,
       crisisResolved: true,
     };
@@ -36,6 +43,8 @@ describe('generateMissionReport', () => {
     expect(report.outcome).toBe('PARTIAL');
     expect(report.sciencePointsEarned).toBe(18);
     expect(report.dataRecoveryRatio).toBeGreaterThanOrEqual(0.75);
+    expect(report.incidents).toHaveLength(3);
+    expect(report.incidents.every((incident) => incident.resolved)).toBe(true);
     expect(report.rootCauses.map((cause) => cause.code)).toContain('SCIENCE_TARGET_MISSED');
     expect(report.missionReference.missionName).toBe('PUNCH');
   });

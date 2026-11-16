@@ -345,6 +345,24 @@ export class RoomService {
     return cloneState(room);
   }
 
+  resetMission(roomId: string, playerId: string, missionId: string): RoomState {
+    const room = this.getMutableRoom(roomId);
+    this.getPlayer(room, playerId);
+    if (room.hostId !== playerId) {
+      throw new RoomServiceError('HOST_REQUIRED', 'Solo quien creó la sala puede preparar otra misión.');
+    }
+    this.assertPhase(room, 'REPORT');
+
+    const mission = getMissionById(missionId);
+    room.mission = mission;
+    room.phase = 'LOBBY';
+    room.selectedModules = [];
+    room.activeVote = null;
+    room.telemetry = calculateTelemetryMetrics(mission, room.selectedModules);
+    room.audit = auditPreLaunch(mission, room.selectedModules);
+    return cloneState(room);
+  }
+
   private applyModule(room: RoomState, module: ModuleItem, action: ModuleAction): void {
     validateModuleProposal(room.mission, room.selectedModules, module, action);
     room.selectedModules =

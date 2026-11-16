@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import type { MissionConfig, RoleType } from '@shared/types';
+import { LocalizedOutput } from '../../lib/i18n';
 import { MissionIllustration } from '../templates/MissionIllustration';
 import { cn } from '../../lib/cn';
 import { ROLE_META, ROLE_ORDER } from '../../lib/roles';
@@ -53,7 +54,7 @@ function MissionBrief({ mission }: { mission: MissionConfig }) {
   const story = mission.story ?? mission.realNasaReference.summary;
   const objectives = mission.objectives ?? [];
 
-  return (
+  return <LocalizedOutput>{(
     <Panel className="flex flex-col gap-gutter-md">
       <MissionIllustration mission={mission} />
       <div className="flex flex-col gap-gutter-xs">
@@ -107,7 +108,7 @@ function MissionBrief({ mission }: { mission: MissionConfig }) {
         </a>
       </div>
     </Panel>
-  );
+  )}</LocalizedOutput>;
 }
 
 function CrewPanel({
@@ -123,7 +124,7 @@ function CrewPanel({
   canSwitchRoles: boolean;
   onSelectRole: (role: RoleType) => void;
 }) {
-  return (
+  return <LocalizedOutput>{(
     <Panel className="flex flex-col gap-gutter-md">
       <SectionTitle
         icon={Users}
@@ -184,7 +185,7 @@ function CrewPanel({
           : 'Cada operador elige un segmento. El host inicia el diseño cuando todos estén listos.'}
       </p>
     </Panel>
-  );
+  )}</LocalizedOutput>;
 }
 
 export function LobbyScreen() {
@@ -286,7 +287,7 @@ export function LobbyScreen() {
   };
 
   if (!hasRoom || !roomState) {
-    return (
+    return <LocalizedOutput>{(
       <div className="flex min-h-screen flex-col bg-surface text-on-surface">
         <ConsoleHeader
           section="Registro de misión"
@@ -318,10 +319,10 @@ export function LobbyScreen() {
           busy={busy}
         />
       </div>
-    );
+    )}</LocalizedOutput>;
   }
 
-  return (
+  return <LocalizedOutput>{(
     <div className="flex min-h-screen flex-col bg-surface text-on-surface">
       <ConsoleHeader
         section="Sala de espera"
@@ -460,5 +461,5 @@ export function LobbyScreen() {
         </div>
       </main>
     </div>
-  );
+  )}</LocalizedOutput>;
 }
