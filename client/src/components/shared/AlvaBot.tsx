@@ -1,7 +1,13 @@
 import { LocalizedOutput } from '../../lib/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, ChevronLeft, ChevronRight, MessageCircle, Pause, Play, X } from 'lucide-react';
-import { getSoundEnabled, playVoiceClip, speakAlvaDialog } from '../../lib/audio';
+import {
+  getSoundEnabled,
+  pauseAlvaDialog,
+  playVoiceClip,
+  resumeAlvaDialog,
+  speakAlvaDialog,
+} from '../../lib/audio';
 import { useLanguage } from '../../lib/i18n';
 import { useDesignStore } from '../../store/useDesignStore';
 import { ActionButton, Panel } from '../templates/ConsolePrimitives';
@@ -205,9 +211,7 @@ function playLessonPart(
   canFallback: () => boolean = () => true,
 ): Promise<boolean> {
   if (language === 'en') {
-    return Promise.resolve(
-      speakAlvaDialog(ENGLISH_DIALOGS[part.audio] ?? part.description, 'en-US'),
-    );
+    return speakAlvaDialog(ENGLISH_DIALOGS[part.audio] ?? part.description, 'en-US');
   }
   return playVoiceClip(part.audio).then(
     (played) => played || (canFallback() && speakAlvaDialog(part.description, 'es-AR')),
@@ -349,9 +353,18 @@ export function AlvaBot() {
       notify('Activa música y sonidos para escuchar los diálogos de AlvaBot.', 'warning');
       return;
     }
+    if (playing) {
+      pauseAlvaDialog();
+      setPlaying(false);
+      return;
+    }
+    if (resumeAlvaDialog()) {
+      setPlaying(true);
+      return;
+    }
     setPlaying(true);
     const spoken = await playLessonPart(part, language);
-    if (!spoken) {
+    if (!spoken && getSoundEnabled()) {
       notify(
         language === 'en'
           ? 'This browser cannot play spoken English dialogs. Spanish subtitles are still available.'

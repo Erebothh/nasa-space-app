@@ -25,6 +25,11 @@ let musicTimer: number | null = null;
 let musicOscillators: OscillatorNode[] = [];
 let currentClip: HTMLAudioElement | null = null;
 let finishCurrentClip: ((played: boolean) => void) | null = null;
+let currentUtterance: SpeechSynthesisUtterance | null = null;
+let pauseClipTimeout: (() => void) | null = null;
+let resumeClipTimeout: (() => void) | null = null;
+let pauseSpeechTimeout: (() => void) | null = null;
+let resumeSpeechTimeout: (() => void) | null = null;
 let alertQueue = Promise.resolve();
 let noteIndex = 0;
 
@@ -220,25 +225,87 @@ export function playAlertTone(): void {
   });
 }
 
-export function speakAlvaDialog(text: string, language = 'es-AR'): boolean {
-  if (!soundEnabled || !('speechSynthesis' in window)) return false;
+export function speakAlvaDialog(text: string, language = 'es-AR'): Promise<boolean> {
+  if (!soundEnabled || !('speechSynthesis' in window)) return Promise.resolve(false);
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = language;
   utterance.rate = 0.95;
   utterance.volume = soundVolume;
-  window.speechSynthesis.speak(utterance);
-  return true;
+  currentUtterance = utterance;
+  return new Promise((resolve) => {
+    let timeout: number | null = null;
+    const clearTimeout = () => {
+      if (timeout === null) return;
+      window.clearTimeout(timeout);
+      timeout = null;
+    };
+    const finish = (played: boolean) => {
+      clearTimeout();
+      if (currentUtterance === utterance) {
+        currentUtterance = null;
+        pauseSpeechTimeout = null;
+        resumeSpeechTimeout = null;
+      }
+      resolve(played);
+    };
+    const scheduleTimeout = () => {
+      clearTimeout();
+      timeout = window.setTimeout(() => {
+        console.warn('Se agotó el tiempo de espera del diálogo de AlvaBot.');
+        finish(false);
+      }, CLIP_TIMEOUT_MS);
+    };
+    pauseSpeechTimeout = clearTimeout;
+    resumeSpeechTimeout = scheduleTimeout;
+    scheduleTimeout();
+    utterance.onend = () => finish(true);
+    utterance.onerror = (event) => {
+      console.warn('No se pudo reproducir el diálogo de AlvaBot:', event.error);
+      finish(false);
+    };
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
+export function pauseAlvaDialog(): boolean {
+  if (currentClip && !currentClip.paused) {
+    currentClip.pause();
+    pauseClipTimeout?.();
+    return true;
+  }
+  if (currentUtterance && !window.speechSynthesis.paused) {
+    window.speechSynthesis.pause();
+    pauseSpeechTimeout?.();
+    return true;
+  }
+  return false;
+}
+
+export function resumeAlvaDialog(): boolean {
+  if (!soundEnabled) return false;
+  if (currentClip?.paused) {
+    resumeClipTimeout?.();
+    void currentClip.play().catch((error: unknown) => {
+      console.warn('No se pudo reanudar el audio de AlvaBot:', error);
+      finishCurrentClip?.(false);
+    });
+    return true;
+  }
+  if (currentUtterance && window.speechSynthesis.paused) {
+    window.speechSynthesis.resume();
+    resumeSpeechTimeout?.();
+    return true;
+  }
+  return false;
 }
 
 function stopCurrentClip(): void {
   if (!currentClip) return;
   const clip = currentClip;
-  currentClip = null;
   clip.pause();
   clip.currentTime = 0;
   const finish = finishCurrentClip;
-  finishCurrentClip = null;
   finish?.(false);
 }
 
@@ -250,21 +317,34 @@ function playClip(source: string): Promise<boolean> {
   audio.volume = 0.9 * soundVolume;
   currentClip = audio;
   return new Promise((resolve) => {
-    let timeout: number;
-    const finish = (played: boolean) => {
+    let timeout: number | null = null;
+    const clearTimeout = () => {
+      if (timeout === null) return;
       window.clearTimeout(timeout);
+      timeout = null;
+    };
+    const finish = (played: boolean) => {
+      clearTimeout();
       if (currentClip === audio) {
         currentClip = null;
         finishCurrentClip = null;
+        pauseClipTimeout = null;
+        resumeClipTimeout = null;
       }
       if (!played) audio.pause();
       resolve(played);
     };
+    const scheduleTimeout = () => {
+      clearTimeout();
+      timeout = window.setTimeout(() => {
+        console.warn(`Se agotó el tiempo de espera del audio: ${playableSource}`);
+        finish(false);
+      }, CLIP_TIMEOUT_MS);
+    };
     finishCurrentClip = finish;
-    timeout = window.setTimeout(() => {
-      console.warn(`Se agotó el tiempo de espera del audio: ${playableSource}`);
-      finish(false);
-    }, CLIP_TIMEOUT_MS);
+    pauseClipTimeout = clearTimeout;
+    resumeClipTimeout = scheduleTimeout;
+    scheduleTimeout();
     audio.addEventListener('ended', () => finish(true), { once: true });
     audio.addEventListener(
       'error',
