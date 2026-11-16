@@ -51,8 +51,9 @@ Socket.IO como un servicio persistente en Render. Para probar partidas online:
    define `CLIENT_ORIGIN` con el origen exacto del frontend, por ejemplo
    `https://orbitalab.vercel.app`.
 3. Espera a que el backend esté disponible y comprueba `https://<backend>.onrender.com/health`.
-   Luego configura `VITE_SERVER_URL` en Vercel con la URL base del backend (sin `/api`) y vuelve a
-   desplegar el frontend.
+   `VITE_SERVER_URL` está definido para producción en `client/.env.production`; si cambia la URL
+   del backend, actualiza ese archivo y vuelve a desplegar Vercel. También puedes definirlo como
+   variable de entorno de Vercel (sin `/api`), que prevalece sobre el archivo.
 4. Abre el frontend en dos navegadores/dispositivos, crea una sala en uno y únete desde el otro
    usando su código. Ambos clientes deben apuntar al mismo backend.
 
