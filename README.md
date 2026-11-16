@@ -39,6 +39,28 @@ npm test             # tests del backend (Vitest)
 
 Variables de entorno: copia `.env.example` a `.env` si necesitas cambiar puertos u orígenes.
 
+## Deploy en Vercel
+
+Vercel sirve el frontend; el archivo [`render.yaml`](./render.yaml) prepara el backend
+Socket.IO como un servicio persistente en Render. Para probar partidas online:
+
+1. Importa el repositorio en Vercel y deja **Root Directory** como `.`. La configuración ejecuta
+   `npm ci`, `npm run build -w client` y publica `client/dist`. Haz un primer deploy para obtener
+   el origen de Vercel.
+2. En Render, crea un **Blueprint** desde este repositorio y usa `render.yaml`. Cuando lo solicite,
+   define `CLIENT_ORIGIN` con el origen exacto del frontend, por ejemplo
+   `https://orbitalab.vercel.app`.
+3. Espera a que el backend esté disponible y comprueba `https://<backend>.onrender.com/health`.
+   Luego configura `VITE_SERVER_URL` en Vercel con la URL base del backend (sin `/api`) y vuelve a
+   desplegar el frontend.
+4. Abre el frontend en dos navegadores/dispositivos, crea una sala en uno y únete desde el otro
+   usando su código. Ambos clientes deben apuntar al mismo backend.
+
+El plan gratuito de Render puede suspender el servicio tras un período sin actividad; el primer
+acceso puede tardar mientras vuelve a arrancar. Las partidas online requieren que el backend esté
+activo y que `CLIENT_ORIGIN` permita el dominio del frontend. Si también pruebas URLs de preview
+de Vercel, agrega sus orígenes separados por comas.
+
 ## Backend API y recursos NASA
 
 El backend entrega los catálogos locales por HTTP:
